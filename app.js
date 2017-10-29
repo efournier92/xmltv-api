@@ -7,14 +7,6 @@ var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
-var passport = require('passport');
-
-// ENV File
-require('dotenv').config()
-// Data Model
-require('./app_api/config/db');
-// Passport Config (after model is defined)
-require('./app_api/config/passport');
 
 // API Routes
 var routesApi = require('./app_api/routes/index');
@@ -37,9 +29,6 @@ app.use(cookieParser());
 // Static Resources
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'app_client')));
-
-// Initialise Passport (before using route middleware)
-app.use(passport.initialize());
 
 // Use API routes when path starts with /api
 app.use('/api', routesApi);

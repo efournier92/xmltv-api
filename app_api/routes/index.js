@@ -1,9 +1,9 @@
 var express = require('express');
 var router = express.Router();
-var commonCtrl = require('../controllers/common.controller');
+var xmltvCtrl = require('../controllers/xmltv.controller');
 
 // Auth API 
-router.post('/xmltv', xmltvCtrl.fetchXml);
+router.get('/xmltv', xmltvCtrl.getXml);
 
 module.exports = router;
 
