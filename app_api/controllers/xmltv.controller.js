@@ -128,6 +128,7 @@ let fh = {};
 let XTVD_startTime;
 let XTVD_endTime;
 
+let today = new Date;
 if (! -d $cacheDir) {
   mkdir($cacheDir) or die "Can't mkdir: $!\n";
 } else {
@@ -138,177 +139,174 @@ const glob = require('glob-fs');
   cacheFiles = glob.readdirSync(paths.cacheDir + '/**/*.js|.html');
   cacheFiles.forEach(cacheFile) {
     let cacheFilePath = cacheDir + cacheFile;
-    let atime = fs.stat(cacheFilePath)[8];
-    let today = new Date;
-    if (atime + ( (days + 2) * 86400) < today) {
+    let lastOpenedAt = fs.stat(cacheFilePath)[8];
+    if (lastOpenedAt + ( (days + 2) * 86400 ) < today) {
     fs.unlink(cacheFilePath, (err) => {
       if (err) throw err;
-      console.log('successfully deleted' + cacheFile);
+      console.log('Deleted File: ' + cacheFile);
     });
     }
   }
 }
 
-my $s1 = time();
-if (defined($options{z})) {
-
-  &login() if !defined($options{a}); # get favorites
-  &parseTVGIcons() if defined($iconDir);
-  $gridHours = 3;
-  $maxCount = $days * (24 / $gridHours);
-  $ncCount = $maxCount - ($ncdays * (24 / $gridHours));
-  $offset = $start * 3600 * 24 * 1000;
-  $ncsCount = $ncsdays * (24 / $gridHours);
-  $ms = &hourToMillis() + $offset;
-
-  for ($count=0; $count < $maxCount; $count++) {
-    if ($count == 0) { 
-      $XTVD_startTime = $ms;
-    } elsif ($count == $maxCount - 1) { 
-      $XTVD_endTime = $ms + ($gridHours * 3600000) - 1;
+if (settings.outputXTVD) {
+  // get favorites
+  if !(settings.outputAllChannels);
+  login();
+  if defined($iconDir) parseTVGIcons();
+  const gridHours = 3;
+  const maxCount = days * (24 / gridHours);
+  const ncCount = maxCount - (ncdays * (24 / gridHours));
+  const offset = start * 3600 * 24 * 1000;
+  const ncsCount = ncsdays * (24 / gridHours);
+  let mSecs = hourToSecs() + offset;
+  
+  for (let i = 0; i < maxCount; i++) {
+    if (i == 0) { 
+      xtvdStartTime = mSecs;
+    } else if (i == maxCount - 1) { 
+      xtvdEndTime = mSecs + (gridHours * 3600000) - 1;
     }
 
-    $fn = "$cacheDir/$ms\.js\.gz";
-    if (! -e $fn || $count >= $ncCount || $count < $ncsCount) {
-      &login() if !defined($zlineupId);
-      my $duration = $gridHours * 60;
-      my $tvgstart = substr($ms, 0, -3);
-      $rc = Encode::encode('utf8', &getURL($tvgurlRoot . "Listingsweb/ws/rest/schedules/$zlineupId/start/$tvgstart/duration/$duration"));
-      &wbf($fn, Compress::Zlib::memGzip($rc));
+    const utf8 = require('utf8');
+    let fileName = cacheDir + mSecs + ".js";
+    if (!fileName || i >= ncCount || i < ncsCount) {
+      if !defined($zlineupId) &login();
+      let duration = gridHours * 60;
+      let mSecsString = mSecs.toString();
+      let tvgStart = mSecsString.substring(0, -3);
+      let absUrl = getURL(paths.tvgUrlRoot + "Listingsweb/ws/rest/schedules/" 
+                                           + user.lineupId 
+                                           + "/start/" 
+                                           + tvgstart 
+                                           + "/duration/" 
+                                           + duration);
     }
-    &pout("[" . ($count+1) . "/" . "$maxCount] Parsing: $fn\n");
-    &parseTVGGrid($fn);
+    console.log("[" + (count + 1) + "/" + maxCount + "] Parsing: " fileName + "\n");
+    parseTVGGrid(fileName);
 
-    if (defined($options{T}) && $tba) {
-      &pout("Deleting: $fn (contains \"$sTBA\")\n");
-      &unf($fn);
+    function cacheTbaFiles() {
+    if ( (options.cacheTbaFiles) && tba ) {
+      console.log("Deleting: " + fileName + "(TBA)\n";
+      unf(fileName);
     }
-    if ($exp) {
-      &pout("Deleting: $fn (expired)\n");
-      &unf($fn);
+    if (exp) {
+      console.log("Deleting: " + fileName + "(expired)\n");
+      unf(fileName);
     }
-    $exp = 0;
-    $tba = 0;
-    $ms += ($gridHours * 3600 * 1000); 
-  } 
+    exp = 0;
+    tba = 0;
+    mSecs += ($gridHours * 3600 * 1000); 
+  }
 
 } else {
-
-  $gridHours = 6;
-  $maxCount = $days * (24 / $gridHours);
-  $ncCount = $maxCount - ($ncdays * (24 / $gridHours));
-  $offset = $start * 3600 * 24 * 1000;
-  $ncsCount = $ncsdays * (24 / $gridHours);
-  $ms = &hourToMillis() + $offset;
-  for ($count=0; $count < $maxCount; $count++) {
-    if ($count == 0) { 
-      $XTVD_startTime = $ms;
-    } elsif ($count == $maxCount - 1) { 
-      $XTVD_endTime = $ms + ($gridHours * 3600000) - 1;
+function parseZap() {
+  let gridHours = 6;
+  let maxCount = days * (24 / gridHours);
+  let ncCount = maxCount - (ncdays * (24 / gridHours));
+  let offset = start * 3600 * 24 * 1000;
+  let ncsCount = $ncsdays * (24 / $gridHours);
+  let mSecs = today.time;
+  for (let i = 0; i < maxCount; i++) {
+    if (i == 0) { 
+      xtvdstartTime = mSecs;
+    } else if (i == maxCount - 1) { 
+      xtvdEndTime = mSecs + (gridHours * 3600000) - 1;
     }
 
-    $fn = "$cacheDir/$ms\.html\.gz";
-    if (! -e $fn || $count >= $ncCount || $count < $ncsCount) {
-      $params = "";
-      $params .= "&lineupId=$zlineupId" if defined($zlineupId);
-      $params .= "&zipcode=$zipcode" if defined($zipcode);
-      $rc = Encode::encode('utf8', &getURL($urlRoot . "ZCGrid.do?isDescriptionOn=true&fromTimeInMillis=$ms$params&aid=tvschedule") );
-      &wbf($fn, Compress::Zlib::memGzip($rc));
+    fileName = "$cacheDir/$ms\.html\.gz";
+    if (!fileName || i >= ncCount || i < ncsCount) {
+      let params = "";
+      if (user.lineupId) params += "lineupId=$zlineupId";
+      if (user.zipcode) $params .= "&zipcode=$zipcode";
+      let absUrl = Encode::encode('utf8', getUrl(paths.urlRoot . "ZCGrid.do?isDescriptionOn=true&fromTimeInMillis="
+        + mSecs + params
+        + "&aid=tvschedule") 
+      );
     }
-    &pout("[" . ($count+1) . "/" . "$maxCount] Parsing: $fn\n");
-    &parseGrid($fn);
+    console.log("[" . ($count+1) . "/" . "$maxCount] Parsing: $fn\n");
+    parseGrid(fileNme);
 
-    if ($count == 0) { #ugly
-      $gridHours = $gridtimes / 2;
-      if ($gridHours < 1) {
-        &perr("Error: The grid is not being displayed, try logging in to the zap2it website\n");
-        &perr("Deleting: $fn\n");
-        &unf($fn);
-        exit;
-      } elsif ($gridHours != 6) {
-        &pout("Notice: \"Six hour grid\" not selected in zap2it preferences, adjusting to $gridHours hour grid\n");
-      } # reset anyway in case of cache mismatch
-      $maxCount = $days * (24 / $gridHours);
-      $ncCount = $maxCount - ($ncdays * (24 / $gridHours));
-      $ncsCount = $ncsdays * (24 / $gridHours);
-    } elsif ($mismatch == 0) {
-      if ($gridHours != $gridtimes / 2) {
-        &pout("Notice: Grid mismatch in cache, ignoring cache & restarting.\n");
-        $mismatch = 1;
-        $ncsdays = 99;
-        $ncsCount = $ncsdays * 24;
-        $ms = &hourToMillis() + $offset;
-        $count = -1;
-        $gridtimes = 0;
-        next; #skip ms incr
+    if (i == 0) { #ugly
+      gridHours = gridtimes / 2;
+      if (gridHours < 1) {
+        console.error("Error: The grid is not being displayed, try logging in to the zap2it website\n");
+        console.error("Deleting: " + fileName + "\n");
+        unf(fileName);
+        break;
+      } else if (gridHours != 6) {
+        console.log("Notice: \"Six hour grid\" not selected in zap2it preferences, adjusting to $gridHours hour grid\n");
+      } // reset anyway in case of cache mismatch
+      maxCount = days * (24 / gridHours);
+      ncCount = maxCount - (ncdays * (24 / gridHours));
+      ncsCount = ncsdays * (24 / gridHours);
+    } elsif (mismatch == 0) {
+      if (gridHours !== gridtimes / 2) {
+        console.log("Notice: Grid mismatch in cache, ignoring cache & restarting.\n");
+        mismatch = 1;
+        ncsdays = 99;
+        ncsCount = ncsdays * 24;
+        mSecs = today.time
+        count = -1;
+        gridtimes = 0;
+        next;
       }
     }
-    $gridtimes = 0;
+    gridtimes = 0;
 
-    if (defined($options{T}) && $tba) {
-      &pout("Deleting: $fn (contains \"$sTBA\")\n");
-      &unf($fn);
+    if (defined(options.cacheTbaFiles) && tba) {
+      console.log("Deleting: " + $fn + "(TBA)\n");
+      unf(fileName);
     }
-    if ($exp) {
-      &pout("Deleting: $fn (expired)\n");
-      &unf($fn);
+    if (exp) {
+      console.log("Deleting: " + $fn + "(expired)\n");
+      unf(fielName);
     }
-    $exp = 0;
-    $tba = 0;
-    $ms += ($gridHours * 3600 * 1000);
+    exp = 0;
+    tba = 0;
+    ms += (gridHours * 3600 * 1000);
   } 
 
 }
-my $s2 = time();
+let s2 = Date.time;
 
-&pout("Downloaded $tb bytes in $treq http requests.\n") if $tb > 0;
-&pout("Expired programs: $expired\n") if $expired > 0;
-&pout("Writing XML file: $outFile\n");
-open($FH, ">$outFile");
-my $enc = 'ISO-8859-1';
-if (defined($options{U})) {
-  $enc = 'UTF-8';
-} 
-if ($outputXTVD) {
-  &printHeaderXTVD($FH, $enc);
-  &printStationsXTVD($FH);
-  &printLineupsXTVD($FH);
-  &printSchedulesXTVD($FH);
-  &printProgramsXTVD($FH);
-  &printGenresXTVD($FH);
-  &printFooterXTVD($FH);
+if $tb > 0 console.log("Downloaded " + tb + "bytes in" + treq + "http requests.\n");
+if $expired > 0 console.log("Expired programs: $expired\n");
+out("Writing XML file: " + outFile + "\n");
+open(FH, ">$outFile");
+let enc = 'ISO-8859-1';
+if (options.utf8) enc = 'UTF-8';
+
+if (outputXTVD) {
+  printHeaderXTVD(FH, enc);
+  printStationsXTVD(FH);
+  printLineupsXTVD(FH);
+  printSchedulesXTVD(FH);
+  printProgramsXTVD(FH);
+  printGenresXTVD(FH);
+  printFooterXTVD(FH);
 } else {
-  &printHeader($FH, $enc);
-  &printChannels($FH);
-  if (defined($includeXMLTV)) {
-    &pout("Reading XML file: $includeXMLTV\n");
-    &incXML("<channel","<programme", $FH);
+  printHeader(FH, enc);
+  printChannels(FH);
+  if (includeXMLTV) {
+    console.log("Reading XML file: " + includeXMLTV + "\n");
+    incXML("<channel","<programme", $FH);
   } 
-  &printProgrammes($FH);
-  &incXML("<programme","</tv", $FH) if defined($includeXMLTV);
-  &printFooter($FH);
+  printProgrammes(FH);
+  if defined(includeXMLTV) incXML("<programme","</tv", FH);
+  printFooter(FH);
 }
 
-close($FH);
+close(FH);
 
-my $ts = 0;
-for my $station (keys %stations ) {
-  $ts += scalar (keys %{$schedule{$station}})
+let ts = 0;
+stations.forEach(keys, station) {
+  station = station.key
+  ts += scalar (keys schedule[station])
 }
-my $s3 = time();
-&pout("Completed in " . ( $s3 - $s1 ) . "s (Parse: " . ( $s2 - $s1 ) . "s) " . keys(%stations) . " stations, " . keys(%programs) . " programs, $ts scheduled.\n");
+let s3 = Date.time;
 
-if (defined($options{w})) {
-  print "Press ENTER to exit:";
-  <STDIN>;
-} else {
-  sleep(3) if ($^O eq 'MSWin32');
-}
-
-exit 0;
-
-sub incXML {
-  my ($st, $en, $FH) = @_;
+function incXML(st, en, FH) {
   open($XF, "<$includeXMLTV");
   while (<$XF>) {
     if (/^\s*$st/../^\s*$en/) {
@@ -318,57 +316,38 @@ sub incXML {
   close($XF);
 }
 
-sub pout {
-  print @_ if !defined $options{q};
+function trim(str) {
+  str.match(/^\s+/);
+  str.match(/\s+$/;
+  return str;
 }
 
-sub perr {
-  warn @_;
+function trim2(str) {
+  str.match(/[^\w\s\(\)\,]\/\/gsi/);
+  $s =~ /\s+\/ \/gsi/; 
+  return str;
 }
 
-sub rtrim {
-  my $s = shift;
-  $s =~ s/\s+$//;
-  return $s;
+function rtrim3(str) {
+  return str.substrsing(0, str.length() - 3);
 }
 
-sub trim {
-  my $s = shift;
-  $s =~ s/^\s+//;
-  $s =~ s/\s+$//;
-  return $s;
+function convTime(time) {
+  time += shiftMinutes * 60 * 1000;
+  return strftime "%Y%m%d%H%M%S", localtime(rtrim3(time.toString()));
 }
 
-sub trim2 {
-  my $s = &trim(shift);
-  $s =~ s/[^\w\s\(\)\,]//gsi;
-  $s =~ s/\s+/ /gsi; 
-  return $s;
+function convTimeXTVD(time) {
+  time += shiftMinutes * 60 * 1000;
+  return strftime "%Y-%m-%dT%H:%M:%SZ", gmtime(&_rtrim3(time.toString()));
 }
 
-sub _rtrim3 {
-  my $s = shift;
-  return substr($s, 0, length($s)-3);
+function convDateLocal(time) {
+  return strftime "%Y%m%d", localtime(&_rtrim3(time));
 }
 
-sub convTime {
-  my $t = shift;
-  $t += $shiftMinutes * 60 * 1000;
-  return strftime "%Y%m%d%H%M%S", localtime(&_rtrim3($t));
-}
-
-sub convTimeXTVD {
-  my $t = shift;
-  $t += $shiftMinutes * 60 * 1000;
-  return strftime "%Y-%m-%dT%H:%M:%SZ", gmtime(&_rtrim3($t));
-}
-
-sub convDateLocal {
-  return strftime "%Y%m%d", localtime(&_rtrim3(shift));
-}
-
-sub convDateLocalXTVD {
-  return strftime "%Y-%m-%d", localtime(&_rtrim3(shift));
+function convDateLocalXTVD(time) {
+  return strftime "%Y-%m-%d", localtime(rtrim3(time));
 }
 
 sub convDurationXTVD {
@@ -748,7 +727,7 @@ sub loginTVG {
             }
             return $dc; 
           } else {
-            &pout("[Attempt $rc] " . $dc . "\n");
+            &console.log("[Attempt $rc] " . $dc . "\n");
             sleep ($sleeptime + 1);
           }
         }
@@ -775,7 +754,7 @@ sub loginZAP {
     if ($dc =~ /success,$userEmail/) {
       return $dc; 
     } else {
-      &pout("[Attempt $rc] " . $dc . "\n");
+      &console.log("[Attempt $rc] " . $dc . "\n");
       sleep ($sleeptime + 1);
     }
   }
@@ -798,14 +777,14 @@ sub login {
   }
 
   if ($userEmail ne '' && $password ne '') {
-    &pout("Logging in as \"$userEmail\" (" . localtime . ")\n");
+    &console.log("Logging in as \"$userEmail\" (" . localtime . ")\n");
     if (defined($options{z})) {
       &loginTVG();
     } else {
       &loginZAP();
     }
   } else {
-    &pout("Connecting with lineupId \"$zlineupId\" (" . localtime . ")\n");
+    &console.log("Connecting with lineupId \"$zlineupId\" (" . localtime . ")\n");
   }
 }
 
@@ -820,7 +799,7 @@ sub getURL {
 
   my $rc = 0;
   while ($rc++ < $retries) {
-    &pout("Getting: $url\n");
+    &console.log("Getting: $url\n");
     sleep $sleeptime; # do these rapid requests flood servers?
     $treq++;
     my $r = $ua->get($url);
@@ -829,7 +808,7 @@ sub getURL {
       $skips = 0;
       return $r->decoded_content( raise_error => 1 );
     } else {
-      &perr("[Attempt $rc] " . $r->status_line . "\n");
+      &console.error("[Attempt $rc] " . $r->status_line . "\n");
       if ($rc == $okret) {
         if ($canLimitSkips && $skips >= $maxskips) {
           # potential flood
@@ -854,7 +833,7 @@ sub wbf {
 
 sub unf {
   my $f = shift;
-  unlink($f) or &perr("Failed to delete '$f': $!");
+  unlink($f) or &console.error("Failed to delete '$f': $!");
 }
 
 sub copyLogo {
@@ -1038,7 +1017,7 @@ sub on_a {
         $rc = Encode::encode('utf8', &getURL($attr->{href}) );
         &wbf($fn, Compress::Zlib::memGzip($rc));
       }
-      &pout("[STNNUM] Parsing: $cs\n");
+      &console.log("[STNNUM] Parsing: $cs\n");
       &parseSTNNUM($fn);
     }
   }
@@ -1149,7 +1128,7 @@ sub parseTVGFavs {
       my $channel = $f->{"channel"};
       $tvgfavs{$channel} = $source;
     }
-    &pout("Lineup $zlineupId favorites: " .  (keys %tvgfavs) . "\n");
+    &console.log("Lineup $zlineupId favorites: " .  (keys %tvgfavs) . "\n");
   }
 }
 
@@ -1347,10 +1326,10 @@ sub getDetails {
   }
   if (-e $fn) {
     my $l = length($prefix) ? $prefix : "D";
-    &pout("[$l] Parsing: $cp\n");
+    &console.log("[$l] Parsing: $cp\n");
     $func->($fn);
   } else {
-    &pout("[$skips] Skipping: $cp\n");
+    &console.log("[$skips] Skipping: $cp\n");
   }
 }
 
@@ -1586,24 +1565,24 @@ sub min ($$) { $_[$_[0] > $_[1]] }
 //     if (zipCode) params += "&zipcode=$zipcode"
 //     let rc = urlRoot + "ZCGrid.do?isDescriptionOn=true&fromTimeInMillis=" + ms + "$params&aid=tvschedule") );
 //   }
-//   &pout("[" . ($count+1) . "/" . "$maxCount] Parsing: $fn\n");
+//   &console.log("[" . ($count+1) . "/" . "$maxCount] Parsing: $fn\n");
 //   &parseGrid($fn);
 
 //   if (i == 0) { #ugly
 //     $gridHours = $gridtimes / 2;
 //     if ($gridHours < 1) {
-//       &perr("Error: The grid is not being displayed, try logging in to the zap2it website\n");
-//       &perr("Deleting: $fn\n");
+//       &console.error("Error: The grid is not being displayed, try logging in to the zap2it website\n");
+//       &console.error("Deleting: $fn\n");
 //       &unf($fn);
 //       exit;
 //     } elsif ($gridHours != 6) {
-//       &pout("Notice: \"Six hour grid\" not selected in zap2it preferences, adjusting to $gridHours hour grid\n");
+//       &console.log("Notice: \"Six hour grid\" not selected in zap2it preferences, adjusting to $gridHours hour grid\n");
 //     } # reset anyway in case of cache mismatch
 //     $ncCount = $maxCount - ($ncdays * (24 / $gridHours));
 //     $ncsCount = $ncsdays * (24 / $gridHours);
 //   } elsif ($mismatch == 0) {
 //     if ($gridHours != $gridtimes / 2) {
-//       &pout("Notice: Grid mismatch in cache, ignoring cache & restarting.\n");
+//       &console.log("Notice: Grid mismatch in cache, ignoring cache & restarting.\n");
 //       $mismatch = 1;
 //       $ncsdays = 99;
 //       $ncsCount = $ncsdays * 24;
@@ -1616,11 +1595,11 @@ sub min ($$) { $_[$_[0] > $_[1]] }
 //   $gridtimes = 0;
 
 //   if (defined($options{T}) && $tba) {
-//     &pout("Deleting: $fn (contains \"$sTBA\")\n");
+//     &console.log("Deleting: $fn (contains \"$sTBA\")\n");
 //     &unf($fn);
 //   }
 //   if ($exp) {
-//     &pout("Deleting: $fn (expired)\n");
+//     &console.log("Deleting: $fn (expired)\n");
 //     &unf($fn);
 //   }
 //   $exp = 0;
