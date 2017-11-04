@@ -1,354 +1,268 @@
-#!/usr/bin/env perl
-# zap2xml - <zap2xml@gmail.com> - tvschedule scraper - for personal use/not for redistribution      
-
-BEGIN { $SIG{__DIE__} = sub { 
-  return if $^S;
-  my $msg = join(" ", @_);
-  print STDERR "$msg";
-  if ($msg =~ /can't locate/i) {
-    print "\nSee homepage for tips on installing missing modules (example: \"perl -MCPAN -e shell\")\n";
-    if ($^O eq 'MSWin32') {
-      print "Use \"ppm install\" on windows\n";
-    }
-  }
-  if ($^O eq 'MSWin32') {
-    if ($msg =~ /uri.pm/i && $msg =~ /temp/i) {
-      print "\nIf your scanner deleted the perl URI.pm file see the homepage for tips\n";
-      if ($msg =~ /(\ .\:.+?par-.+?\\)/) {
-        print "(Delete the $1 folder and retry)\n";
-      }
-    }
-    sleep(5);
-  } 
-  exit 1;
-}}
-
-use Compress::Zlib;
-use Encode;
-use File::Basename;
-use File::Copy;
-use Getopt::Std;
-use HTML::Parser 3.00 ();
-use HTTP::Cookies;
-use URI;
-use URI::Escape;
-use LWP::UserAgent;
-use POSIX;
-use Time::Local;
-use JSON;
-
-no warnings 'utf8';
-
-STDOUT->autoflush(1);
-STDERR->autoflush(1);
-
-%options=();
+let options = ();
 getopts("?aA:bc:C:d:DeE:Fgi:IjJ:l:Lm:Mn:N:o:Op:P:qr:R:s:S:t:Tu:UwWxY:zZ:",\%options);
 
-$homeDir = $ENV{HOME};
-$homeDir = $ENV{USERPROFILE} if !defined($homeDir);
-$homeDir = '.' if !defined($homeDir);
-$confFile = $homeDir . '/.zap2xmlrc';
+let homeDir = './';
+let confFile = homeDir + './config';
 
-# Defaults
-$start = 0;
-$days = 7;
-$ncdays = 0;
-$ncsdays = 0;
-$retries = 3;
-$maxskips = 50;
-$outFile = 'xmltv.xml';
-$outFile = 'xtvd.xml' if defined $options{x};
-$cacheDir = 'cache';
-$lang = 'en';
-$userEmail = '';
-$password = '';
-$proxy;
-$postalcode; 
-$lineupId; 
-$sleeptime = 0;
-$shiftMinutes = 0;
+defaultConfig = {
+  start : 0,
+  days : 7,
+  ncdays : 0,
+  ncsdays : 0,
+  retries : 3,
+  maxskips : 50,
+  outFile : homeDir + 'xmltv.xml',
+  cacheDir : 'cache',
+  lang : 'en',
+  userEmail : '',
+  password : '',
+  sleeptime : 0,
+  shiftMinutes : 0,
+  outputXTVD : 0
+}
 
-$outputXTVD = 0;
-$lineuptype;
-$lineupname;
-$lineuplocation;
+let sTBA = "TBA|To Be Announced";
 
-$sTBA = "\\bTBA\\b|To Be Announced";
+let tvgfavs = {};
 
-%tvgfavs=();
-
-&HELP_MESSAGE() if defined $options{'?'};
-
-$confFile = $options{C} if defined $options{C};
-# read config file
-if (open (CONF, $confFile))
-{
-  &pout("Reading config file: $confFile\n");
-  while (<CONF>)
-  {
-    s/#.*//; # comments
-    if (/^\s*$/i)                            { }
-    elsif (/^\s*start\s*=\s*(\d+)/i)         { $start = $1; }
-    elsif (/^\s*days\s*=\s*(\d+)/i)          { $days = $1; }
-    elsif (/^\s*ncdays\s*=\s*(\d+)/i)        { $ncdays = $1; }
-    elsif (/^\s*ncsdays\s*=\s*(\d+)/i)       { $ncsdays = $1; }
-    elsif (/^\s*retries\s*=\s*(\d+)/i)       { $retries = $1; }
-    elsif (/^\s*user[\w\s]*=\s*(.+)/i)       { $userEmail = &rtrim($1); }
-    elsif (/^\s*pass[\w\s]*=\s*(.+)/i)       { $password = &rtrim($1); }
-    elsif (/^\s*cache\s*=\s*(.+)/i)          { $cacheDir = &rtrim($1); }
-    elsif (/^\s*icon\s*=\s*(.+)/i)           { $iconDir = &rtrim($1); }
-    elsif (/^\s*trailer\s*=\s*(.+)/i)        { $trailerDir = &rtrim($1); }
-    elsif (/^\s*lang\s*=\s*(.+)/i)           { $lang = &rtrim($1); }
-    elsif (/^\s*outfile\s*=\s*(.+)/i)        { $outFile = &rtrim($1); }
-    elsif (/^\s*proxy\s*=\s*(.+)/i)          { $proxy = &rtrim($1); }
-    elsif (/^\s*outformat\s*=\s*(.+)/i)      { $outputXTVD = 1 if $1 =~ /xtvd/i; }
-    elsif (/^\s*lineupid\s*=\s*(.+)/i)       { $lineupId = &rtrim($1); }
-    elsif (/^\s*lineupname\s*=\s*(.+)/i)     { $lineupname = &rtrim($1); }
-    elsif (/^\s*lineuptype\s*=\s*(.+)/i)     { $lineuptype = &rtrim($1); }
-    elsif (/^\s*lineuplocation\s*=\s*(.+)/i) { $lineuplocation = &rtrim($1); }
-    elsif (/^\s*postalcode\s*=\s*(.+)/i)     { $postalcode = &rtrim($1); }
-    else
-    {
-      die "Oddline in config file \"$confFile\".\n\t$_";
-    }
+let configFile = xmltvConfig.settings
+settings = {
+racheDir : $options{c} if defined $options{c};
+days : 7,
+ncdays : 0,
+ncsdays : 0,
+start : 0,
+retries : 3,
+maxskips : 50,
+includeXMLTV : true,
+outputXTVD : 0,
+sleeptime : 0,
+shiftMinutes : 0,
+lang : 'en',
   }
-  close (CONF);
-} 
-&HELP_MESSAGE() if !(%options) && $userEmail eq '';
 
-$cacheDir = $options{c} if defined $options{c};
-$days = $options{d} if defined $options{d};
-$ncdays = $options{n} if defined $options{n};
-$ncsdays = $options{N} if defined $options{N};
-$start = $options{s} if defined $options{s};
-$retries = $options{r} if defined $options{r};
-$maxskips = $options{R} if defined $options{R};
-$iconDir = $options{i} if defined $options{i};
-$trailerDir = $options{t} if defined $options{t};
-$lang = $options{l} if defined $options{l};
-$outFile = $options{o} if defined $options{o};
-$password = $options{p} if defined $options{p};
-$userEmail = $options{u} if defined $options{u};
-$proxy = $options{P} if defined $options{P};
-$zlineupId = $options{Y} if defined $options{Y};
-$zipcode = $options{Z} if defined $options{Z};
-$includeXMLTV = $options{J} if defined $options{J} && -e $options{J};
-$outputXTVD = 1 if defined $options{x};
-$sleeptime = $options{S} if defined $options{S};
-$shiftMinutes = $options{m} if defined $options{m};
+usersettings {
+email : undefined,
+password : undefined,
+lineupId : undefined,
+zipcode : undefined,
+proxy : undefined,
+}
 
-$urlRoot = 'http://tvschedule.zap2it.com/tvlistings/';
-$tvgurlRoot = 'http://mobilelistings.tvguide.com/';
-$tvgMapiRoot = 'http://mapi.tvguide.com/';
-$tvgurl = 'http://www.tvguide.com/';
-$tvgspritesurl = 'http://static.tvgcdn.net/sprites/';
+let paths {
+outFile : homeDir + 'xmltv.xml',
+urlRoot : 'http://tvschedule.zap2it.com/tvlistings/',
+tvgurlRoot : 'http://mobilelistings.tvguide.com/',
+tvgMapiRoot : 'http://mapi.tvguide.com/',
+tvgurl : 'http://www.tvguide.com/',
+tvgspritesurl : 'http://static.tvgcdn.net/sprites/',
+iconDir : undefined,
+trailerDir : undefined,
+retries : 20,
+}
 
-$retries = 20 if $retries > 20; # Too many
+let programs = {};
+let stations = {};
+let schedule = {};
+let gridtimes = 0;
+let mismatch  = 0;
 
-my %programs = ();
-my $cp;
-my %stations = ();
-my $cs;
-my $rcs;
-my %schedule = ();
-my $sch;
-my $gridtimes = 0;
-my $mismatch = 0;
+let coNum = 0;
+let tb = 0;
+let treq = 0;
+let expired = 0;
+let inStationTd = 0;
+let inIcons = 0;
+let inStationLogo = 0;
+let ua;
+let tba = 0;
+let exp = 0;
+let skips = 0;
+let canLimitSkips = 0;
+let fh = {};
 
-my $coNum = 0;
-my $tb = 0;
-my $treq = 0;
-my $expired = 0;
-my $inStationTd = 0;
-my $inIcons = 0;
-my $inStationLogo = 0;
-my $ua;
-my $tba = 0;
-my $exp = 0;
-my $skips = 0;
-my $canLimitSkips = 0;
-my @fh = ();
+let XTVD_startTime;
+let XTVD_endTime;
 
-my $XTVD_startTime;
-my $XTVD_endTime;
-
+let today = new Date;
 if (! -d $cacheDir) {
   mkdir($cacheDir) or die "Can't mkdir: $!\n";
 } else {
-  opendir (DIR, "$cacheDir/");
-  @cacheFiles = grep(/\.html|\.js/,readdir(DIR));
-  closedir (DIR);
-  foreach $cacheFile (@cacheFiles) {
-    $fn = "$cacheDir/$cacheFile";
-    $atime = (stat($fn))[8];
-    if ($atime + ( ($days + 2) * 86400) < time) {
-      &pout("Deleting old cached file: $fn\n");
-      &unf($fn);
+  const fs = require('fs');
+  opendir(DIR, "$cacheDir/");
+const glob = require('glob-fs');
+  let cacheFiles = [];
+  cacheFiles = glob.readdirSync(paths.cacheDir + '/**/*.js|.html');
+  cacheFiles.forEach(cacheFile) {
+    let cacheFilePath = cacheDir + cacheFile;
+    let lastOpenedAt = fs.stat(cacheFilePath)[8];
+    if (lastOpenedAt + ( (days + 2) * 86400 ) < today) {
+    fs.unlink(cacheFilePath, (err) => {
+      if (err) throw err;
+      console.log('Deleted File: ' + cacheFile);
+    });
     }
   }
 }
 
-my $s1 = time();
-if (defined($options{z})) {
-
-  &login() if !defined($options{a}); # get favorites
-  &parseTVGIcons() if defined($iconDir);
-  $gridHours = 3;
-  $maxCount = $days * (24 / $gridHours);
-  $ncCount = $maxCount - ($ncdays * (24 / $gridHours));
-  $offset = $start * 3600 * 24 * 1000;
-  $ncsCount = $ncsdays * (24 / $gridHours);
-  $ms = &hourToMillis() + $offset;
-
-  for ($count=0; $count < $maxCount; $count++) {
-    if ($count == 0) { 
-      $XTVD_startTime = $ms;
-    } elsif ($count == $maxCount - 1) { 
-      $XTVD_endTime = $ms + ($gridHours * 3600000) - 1;
+if (settings.outputXTVD) {
+  // get favorites
+  if !(settings.outputAllChannels);
+  login();
+  if defined($iconDir) parseTVGIcons();
+  const gridHours = 3;
+  const maxCount = days * (24 / gridHours);
+  const ncCount = maxCount - (ncdays * (24 / gridHours));
+  const offset = start * 3600 * 24 * 1000;
+  const ncsCount = ncsdays * (24 / gridHours);
+  let mSecs = hourToSecs() + offset;
+  
+  for (let i = 0; i < maxCount; i++) {
+    if (i == 0) { 
+      xtvdStartTime = mSecs;
+    } else if (i == maxCount - 1) { 
+      xtvdEndTime = mSecs + (gridHours * 3600000) - 1;
     }
 
-    $fn = "$cacheDir/$ms\.js\.gz";
-    if (! -e $fn || $count >= $ncCount || $count < $ncsCount) {
-      &login() if !defined($zlineupId);
-      my $duration = $gridHours * 60;
-      my $tvgstart = substr($ms, 0, -3);
-      $rc = Encode::encode('utf8', &getURL($tvgurlRoot . "Listingsweb/ws/rest/schedules/$zlineupId/start/$tvgstart/duration/$duration"));
-      &wbf($fn, Compress::Zlib::memGzip($rc));
+    const utf8 = require('utf8');
+    let fileName = cacheDir + mSecs + ".js";
+    if (!fileName || i >= ncCount || i < ncsCount) {
+      if !defined($zlineupId) &login();
+      let duration = gridHours * 60;
+      let mSecsString = mSecs.toString();
+      let tvgStart = mSecsString.substring(0, -3);
+      let absUrl = getURL(paths.tvgUrlRoot + "Listingsweb/ws/rest/schedules/" 
+                                           + user.lineupId 
+                                           + "/start/" 
+                                           + tvgstart 
+                                           + "/duration/" 
+                                           + duration);
     }
-    &pout("[" . ($count+1) . "/" . "$maxCount] Parsing: $fn\n");
-    &parseTVGGrid($fn);
+    console.log("[" + (count + 1) + "/" + maxCount + "] Parsing: " fileName + "\n");
+    parseTVGGrid(fileName);
 
-    if (defined($options{T}) && $tba) {
-      &pout("Deleting: $fn (contains \"$sTBA\")\n");
-      &unf($fn);
+    function cacheTbaFiles() {
+    if ( (options.cacheTbaFiles) && tba ) {
+      console.log("Deleting: " + fileName + "(TBA)\n";
+      unf(fileName);
     }
-    if ($exp) {
-      &pout("Deleting: $fn (expired)\n");
-      &unf($fn);
+    if (exp) {
+      console.log("Deleting: " + fileName + "(expired)\n");
+      unf(fileName);
     }
-    $exp = 0;
-    $tba = 0;
-    $ms += ($gridHours * 3600 * 1000); 
-  } 
+    exp = 0;
+    tba = 0;
+    mSecs += ($gridHours * 3600 * 1000); 
+  }
 
 } else {
-
-  $gridHours = 6;
-  $maxCount = $days * (24 / $gridHours);
-  $ncCount = $maxCount - ($ncdays * (24 / $gridHours));
-  $offset = $start * 3600 * 24 * 1000;
-  $ncsCount = $ncsdays * (24 / $gridHours);
-  $ms = &hourToMillis() + $offset;
-  for ($count=0; $count < $maxCount; $count++) {
-    if ($count == 0) { 
-      $XTVD_startTime = $ms;
-    } elsif ($count == $maxCount - 1) { 
-      $XTVD_endTime = $ms + ($gridHours * 3600000) - 1;
+function parseZap() {
+  let gridHours = 6;
+  let maxCount = days * (24 / gridHours);
+  let ncCount = maxCount - (ncdays * (24 / gridHours));
+  let offset = start * 3600 * 24 * 1000;
+  let ncsCount = $ncsdays * (24 / $gridHours);
+  let mSecs = today.time;
+  for (let i = 0; i < maxCount; i++) {
+    if (i == 0) { 
+      xtvdstartTime = mSecs;
+    } else if (i == maxCount - 1) { 
+      xtvdEndTime = mSecs + (gridHours * 3600000) - 1;
     }
 
-    $fn = "$cacheDir/$ms\.html\.gz";
-    if (! -e $fn || $count >= $ncCount || $count < $ncsCount) {
-      $params = "";
-      $params .= "&lineupId=$zlineupId" if defined($zlineupId);
-      $params .= "&zipcode=$zipcode" if defined($zipcode);
-      $rc = Encode::encode('utf8', &getURL($urlRoot . "ZCGrid.do?isDescriptionOn=true&fromTimeInMillis=$ms$params&aid=tvschedule") );
-      &wbf($fn, Compress::Zlib::memGzip($rc));
+    fileName = "$cacheDir/$ms\.html\.gz";
+    if (!fileName || i >= ncCount || i < ncsCount) {
+      let params = "";
+      if (user.lineupId) params += "lineupId=$zlineupId";
+      if (user.zipcode) $params .= "&zipcode=$zipcode";
+      let absUrl = Encode::encode('utf8', getUrl(paths.urlRoot . "ZCGrid.do?isDescriptionOn=true&fromTimeInMillis="
+        + mSecs + params
+        + "&aid=tvschedule") 
+      );
     }
-    &pout("[" . ($count+1) . "/" . "$maxCount] Parsing: $fn\n");
-    &parseGrid($fn);
+    console.log("[" . ($count+1) . "/" . "$maxCount] Parsing: $fn\n");
+    parseGrid(fileNme);
 
-    if ($count == 0) { #ugly
-      $gridHours = $gridtimes / 2;
-      if ($gridHours < 1) {
-        &perr("Error: The grid is not being displayed, try logging in to the zap2it website\n");
-        &perr("Deleting: $fn\n");
-        &unf($fn);
-        exit;
-      } elsif ($gridHours != 6) {
-        &pout("Notice: \"Six hour grid\" not selected in zap2it preferences, adjusting to $gridHours hour grid\n");
-      } # reset anyway in case of cache mismatch
-      $maxCount = $days * (24 / $gridHours);
-      $ncCount = $maxCount - ($ncdays * (24 / $gridHours));
-      $ncsCount = $ncsdays * (24 / $gridHours);
-    } elsif ($mismatch == 0) {
-      if ($gridHours != $gridtimes / 2) {
-        &pout("Notice: Grid mismatch in cache, ignoring cache & restarting.\n");
-        $mismatch = 1;
-        $ncsdays = 99;
-        $ncsCount = $ncsdays * 24;
-        $ms = &hourToMillis() + $offset;
-        $count = -1;
-        $gridtimes = 0;
-        next; #skip ms incr
+    if (i == 0) { #ugly
+      gridHours = gridtimes / 2;
+      if (gridHours < 1) {
+        console.error("Error: The grid is not being displayed, try logging in to the zap2it website\n");
+        console.error("Deleting: " + fileName + "\n");
+        unf(fileName);
+        break;
+      } else if (gridHours != 6) {
+        console.log("Notice: \"Six hour grid\" not selected in zap2it preferences, adjusting to $gridHours hour grid\n");
+      } // reset anyway in case of cache mismatch
+      maxCount = days * (24 / gridHours);
+      ncCount = maxCount - (ncdays * (24 / gridHours));
+      ncsCount = ncsdays * (24 / gridHours);
+    } elsif (mismatch == 0) {
+      if (gridHours !== gridtimes / 2) {
+        console.log("Notice: Grid mismatch in cache, ignoring cache & restarting.\n");
+        mismatch = 1;
+        ncsdays = 99;
+        ncsCount = ncsdays * 24;
+        mSecs = today.time
+        count = -1;
+        gridtimes = 0;
+        next;
       }
     }
-    $gridtimes = 0;
+    gridtimes = 0;
 
-    if (defined($options{T}) && $tba) {
-      &pout("Deleting: $fn (contains \"$sTBA\")\n");
-      &unf($fn);
+    if (defined(options.cacheTbaFiles) && tba) {
+      console.log("Deleting: " + $fn + "(TBA)\n");
+      unf(fileName);
     }
-    if ($exp) {
-      &pout("Deleting: $fn (expired)\n");
-      &unf($fn);
+    if (exp) {
+      console.log("Deleting: " + $fn + "(expired)\n");
+      unf(fielName);
     }
-    $exp = 0;
-    $tba = 0;
-    $ms += ($gridHours * 3600 * 1000);
+    exp = 0;
+    tba = 0;
+    ms += (gridHours * 3600 * 1000);
   } 
 
 }
-my $s2 = time();
+let s2 = Date.time;
 
-&pout("Downloaded $tb bytes in $treq http requests.\n") if $tb > 0;
-&pout("Expired programs: $expired\n") if $expired > 0;
-&pout("Writing XML file: $outFile\n");
-open($FH, ">$outFile");
-my $enc = 'ISO-8859-1';
-if (defined($options{U})) {
-  $enc = 'UTF-8';
-} 
-if ($outputXTVD) {
-  &printHeaderXTVD($FH, $enc);
-  &printStationsXTVD($FH);
-  &printLineupsXTVD($FH);
-  &printSchedulesXTVD($FH);
-  &printProgramsXTVD($FH);
-  &printGenresXTVD($FH);
-  &printFooterXTVD($FH);
+if $tb > 0 console.log("Downloaded " + tb + "bytes in" + treq + "http requests.\n");
+if $expired > 0 console.log("Expired programs: $expired\n");
+out("Writing XML file: " + outFile + "\n");
+open(FH, ">$outFile");
+let enc = 'ISO-8859-1';
+if (options.utf8) enc = 'UTF-8';
+
+if (outputXTVD) {
+  printHeaderXTVD(FH, enc);
+  printStationsXTVD(FH);
+  printLineupsXTVD(FH);
+  printSchedulesXTVD(FH);
+  printProgramsXTVD(FH);
+  printGenresXTVD(FH);
+  printFooterXTVD(FH);
 } else {
-  &printHeader($FH, $enc);
-  &printChannels($FH);
-  if (defined($includeXMLTV)) {
-    &pout("Reading XML file: $includeXMLTV\n");
-    &incXML("<channel","<programme", $FH);
+  printHeader(FH, enc);
+  printChannels(FH);
+  if (includeXMLTV) {
+    console.log("Reading XML file: " + includeXMLTV + "\n");
+    incXML("<channel","<programme", $FH);
   } 
-  &printProgrammes($FH);
-  &incXML("<programme","</tv", $FH) if defined($includeXMLTV);
-  &printFooter($FH);
+  printProgrammes(FH);
+  if defined(includeXMLTV) incXML("<programme","</tv", FH);
+  printFooter(FH);
 }
 
-close($FH);
+close(FH);
 
-my $ts = 0;
-for my $station (keys %stations ) {
-  $ts += scalar (keys %{$schedule{$station}})
+let ts = 0;
+stations.forEach(keys, station) {
+  station = station.key
+  ts += scalar (keys schedule[station])
 }
-my $s3 = time();
-&pout("Completed in " . ( $s3 - $s1 ) . "s (Parse: " . ( $s2 - $s1 ) . "s) " . keys(%stations) . " stations, " . keys(%programs) . " programs, $ts scheduled.\n");
+let s3 = Date.time;
 
-if (defined($options{w})) {
-  print "Press ENTER to exit:";
-  <STDIN>;
-} else {
-  sleep(3) if ($^O eq 'MSWin32');
-}
-
-exit 0;
-
-sub incXML {
-  my ($st, $en, $FH) = @_;
+function incXML(st, en, FH) {
   open($XF, "<$includeXMLTV");
   while (<$XF>) {
     if (/^\s*$st/../^\s*$en/) {
@@ -358,89 +272,66 @@ sub incXML {
   close($XF);
 }
 
-sub pout {
-  print @_ if !defined $options{q};
+function trim(str) {
+  str.match(/^\s+/);
+  str.match(/\s+$/;
+  return str;
 }
 
-sub perr {
-  warn @_;
+function trim2(str) {
+  str.match(/[^\w\s\(\)\,]\/\/gsi/);
+  $s =~ /\s+\/ \/gsi/; 
+  return str;
 }
 
-sub rtrim {
-  my $s = shift;
-  $s =~ s/\s+$//;
-  return $s;
+function rtrim3(str) {
+  return str.substrsing(0, str.length() - 3);
 }
 
-sub trim {
-  my $s = shift;
-  $s =~ s/^\s+//;
-  $s =~ s/\s+$//;
-  return $s;
+function convTime(time) {
+  time += shiftMinutes * 60 * 1000;
+  return strftime "%Y%m%d%H%M%S", localtime(rtrim3(time.toString()));
 }
 
-sub trim2 {
-  my $s = &trim(shift);
-  $s =~ s/[^\w\s\(\)\,]//gsi;
-  $s =~ s/\s+/ /gsi; 
-  return $s;
+function convTimeXTVD(time) {
+  time += shiftMinutes * 60 * 1000;
+  return strftime "%Y-%m-%dT%H:%M:%SZ", gmtime(&_rtrim3(time.toString()));
 }
 
-sub _rtrim3 {
-  my $s = shift;
-  return substr($s, 0, length($s)-3);
+function convDateLocal(time) {
+  return strftime "%Y%m%d", localtime(&_rtrim3(time));
 }
 
-sub convTime {
-  my $t = shift;
-  $t += $shiftMinutes * 60 * 1000;
-  return strftime "%Y%m%d%H%M%S", localtime(&_rtrim3($t));
+function convDateLocalXTVD(time) {
+  return strftime "%Y-%m-%d", localtime(rtrim3(time));
 }
 
-sub convTimeXTVD {
-  my $t = shift;
-  $t += $shiftMinutes * 60 * 1000;
-  return strftime "%Y-%m-%dT%H:%M:%SZ", gmtime(&_rtrim3($t));
-}
-
-sub convDateLocal {
-  return strftime "%Y%m%d", localtime(&_rtrim3(shift));
-}
-
-sub convDateLocalXTVD {
-  return strftime "%Y-%m-%d", localtime(&_rtrim3(shift));
-}
-
-sub convDurationXTVD {
-  my $duration = shift; 
-  my $hour = int($duration / 3600000);
-  my $minutes = int(($duration - ($hour * 3600000)) / 60000);
+function convDurationXTVD(duration) {
+  let hour = Math.floor(duration / 3600000);
+  let minutes = int((duration - (hour * 3600000)) / 60000);
   return sprintf("PT%02dH%02dM", $hour, $minutes);
 }
 
-sub appendAsterisk {
-  my ($title, $station, $s) = @_;
-  if (defined($options{A})) {
-    if (($options{A} =~ "new" && defined($schedule{$station}{$s}{new}))
-      || ($options{A} =~ "live" && defined($schedule{$station}{$s}{live}))) {
-      $title .= " *";
+function appendAsterisk(title, station, str) {
+  if (defined(options.appendAsterisk)) {
+    if ((options.appendAsterisk === "new" && schedule{station}{str}{new}) || (options.appendAsterisk === "live" && schedule{$station}{str}{live})) {
+      title += " *";
     }
   }
-  return $title;
+  return title;
 }
 
-sub stationToChannel {
-  my $s = shift;
-  if (defined($options{z})) {
-    return sprintf("I%s.%s.tvguide.com", $stations{$s}{number},$stations{$s}{stnNum});
-  } elsif (defined($options{O})) {
-    return sprintf("C%s%s.zap2it.com",$stations{$s}{number},lc($stations{$s}{name}));
+function stationToChannel(str) {
+  if (options.useTvGuide) {
+    return sprintf("I%s.%s.tvguide.com", stations{str}{number},stations{$s}{stnNum});
+  } else if ($options.useOldChannelIds) {
+    return sprintf("C%s%s.zap2it.com", stations{str}{number},lc(stations{str}{name}));
   }
-  return sprintf("I%s.labs.zap2it.com", $stations{$s}{stnNum});
+  return sprintf("I%s.labs.zap2it.com", $stations{str}{stnNum});
 }
 
-sub sortChan {
-  if (defined($stations{$a}{order}) && defined($stations{$b}{order})) {
+function sortChan {
+  if (stations{$a}{order}) && defined($stations{$b}{order})) {
     return $stations{$a}{order} <=> $stations{$b}{order};
   } else {
     return $stations{$a}{name} cmp $stations{$b}{name};
@@ -788,7 +679,7 @@ sub loginTVG {
             }
             return $dc; 
           } else {
-            &pout("[Attempt $rc] " . $dc . "\n");
+            &console.log("[Attempt $rc] " . $dc . "\n");
             sleep ($sleeptime + 1);
           }
         }
@@ -815,7 +706,7 @@ sub loginZAP {
     if ($dc =~ /success,$userEmail/) {
       return $dc; 
     } else {
-      &pout("[Attempt $rc] " . $dc . "\n");
+      &console.log("[Attempt $rc] " . $dc . "\n");
       sleep ($sleeptime + 1);
     }
   }
@@ -838,14 +729,14 @@ sub login {
   }
 
   if ($userEmail ne '' && $password ne '') {
-    &pout("Logging in as \"$userEmail\" (" . localtime . ")\n");
+    &console.log("Logging in as \"$userEmail\" (" . localtime . ")\n");
     if (defined($options{z})) {
       &loginTVG();
     } else {
       &loginZAP();
     }
   } else {
-    &pout("Connecting with lineupId \"$zlineupId\" (" . localtime . ")\n");
+    &console.log("Connecting with lineupId \"$zlineupId\" (" . localtime . ")\n");
   }
 }
 
@@ -860,7 +751,7 @@ sub getURL {
 
   my $rc = 0;
   while ($rc++ < $retries) {
-    &pout("Getting: $url\n");
+    &console.log("Getting: $url\n");
     sleep $sleeptime; # do these rapid requests flood servers?
     $treq++;
     my $r = $ua->get($url);
@@ -869,7 +760,7 @@ sub getURL {
       $skips = 0;
       return $r->decoded_content( raise_error => 1 );
     } else {
-      &perr("[Attempt $rc] " . $r->status_line . "\n");
+      &console.error("[Attempt $rc] " . $r->status_line . "\n");
       if ($rc == $okret) {
         if ($canLimitSkips && $skips >= $maxskips) {
           # potential flood
@@ -894,7 +785,7 @@ sub wbf {
 
 sub unf {
   my $f = shift;
-  unlink($f) or &perr("Failed to delete '$f': $!");
+  unlink($f) or &console.error("Failed to delete '$f': $!");
 }
 
 sub copyLogo {
@@ -1078,7 +969,7 @@ sub on_a {
         $rc = Encode::encode('utf8', &getURL($attr->{href}) );
         &wbf($fn, Compress::Zlib::memGzip($rc));
       }
-      &pout("[STNNUM] Parsing: $cs\n");
+      &console.log("[STNNUM] Parsing: $cs\n");
       &parseSTNNUM($fn);
     }
   }
@@ -1189,7 +1080,7 @@ sub parseTVGFavs {
       my $channel = $f->{"channel"};
       $tvgfavs{$channel} = $source;
     }
-    &pout("Lineup $zlineupId favorites: " .  (keys %tvgfavs) . "\n");
+    &console.log("Lineup $zlineupId favorites: " .  (keys %tvgfavs) . "\n");
   }
 }
 
@@ -1387,10 +1278,10 @@ sub getDetails {
   }
   if (-e $fn) {
     my $l = length($prefix) ? $prefix : "D";
-    &pout("[$l] Parsing: $cp\n");
+    &console.log("[$l] Parsing: $cp\n");
     $func->($fn);
   } else {
-    &pout("[$skips] Skipping: $cp\n");
+    &console.log("[$skips] Skipping: $cp\n");
   }
 }
 
@@ -1535,47 +1426,3 @@ sub timezone {
 sub max ($$) { $_[$_[0] < $_[1]] }
 sub min ($$) { $_[$_[0] > $_[1]] }
 
-sub HELP_MESSAGE {
-print <<END;
-zap2xml <zap2xml\@gmail.com> (2017-01-01)
-  -u <username>
-  -p <password>
-  -d <# of days> (default = $days)
-  -n <# of no-cache days> (from end)   (default = $ncdays)
-  -N <# of no-cache days> (from start) (default = $ncsdays)
-  -s <start day offset> (default = $start)
-  -o <output xml filename> (default = "$outFile")
-  -c <cacheDirectory> (default = "$cacheDir")
-  -l <lang> (default = "$lang")
-  -i <iconDirectory> (default = don't download channel icons)
-  -m <#> = offset program times by # minutes (better to use TZ env var)
-  -b = retain website channel order
-  -x = output XTVD xml file format (default = XMLTV)
-  -w = wait on exit (require keypress before exiting)
-  -q = quiet (no status output)
-  -r <# of connection retries before failure> (default = $retries, max 20)
-  -R <# of sequential skips of missing detail IDs before failure> (default = $maxskips)
-  -e = hex encode entities (html special characters like accents)
-  -E "amp apos quot lt gt" = selectively encode standard XML entities
-  -F = output channel names first (rather than "number name")
-  -O = use old tv_grab_na style channel ids (C###nnnn.zap2it.com)
-  -A "new live" = append " *" to program titles that are "new" and/or "live"
-  -M = copy movie_year to empty movie sub-title tags
-  -U = UTF-8 encoding (default = "ISO-8859-1")
-  -L = output "<live />" tag (not part of xmltv.dtd)
-  -T = don't cache files containing programs with "$sTBA" titles 
-  -P <http://proxyhost:port> = to use an http proxy
-  -C <configuration file> (default = "$confFile")
-  -S <#seconds> = sleep between requests to prevent flooding of server 
-  -D = include details = 1 extra http request per program!
-  -I = include icons (image URLs) - 1 extra http request per program!
-  -J <xmltv> = include xmltv file in output
-  -Y <lineupId> (if not using username/password)
-  -Z <zipcode> (if not using username/password)
-  -z = use tvguide.com instead of zap2it.com
-  -a = output all channels (not just favorites) on tvguide.com
-  -j = add "series" category to all non-movie programs
-END
-sleep(5) if ($^O eq 'MSWin32');
-exit 0;
-}
