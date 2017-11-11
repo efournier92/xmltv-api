@@ -1,66 +1,8 @@
-let options = ();
-getopts("?aA:bc:C:d:DeE:Fgi:IjJ:l:Lm:Mn:N:o:Op:P:qr:R:s:S:t:Tu:UwWxY:zZ:",\%options);
+const fs = require("fs");
 
-let homeDir = './';
-let confFile = homeDir + './config';
+const sTBA = "TBA|To Be Announced";
 
-defaultConfig = {
-  start : 0,
-  days : 7,
-  ncdays : 0,
-  ncsdays : 0,
-  retries : 3,
-  maxskips : 50,
-  outFile : homeDir + 'xmltv.xml',
-  cacheDir : 'cache',
-  lang : 'en',
-  userEmail : '',
-  password : '',
-  sleeptime : 0,
-  shiftMinutes : 0,
-  outputXTVD : 0
-}
-
-let sTBA = "TBA|To Be Announced";
-
-let tvgfavs = {};
-
-let configFile = xmltvConfig.settings
-settings = {
-racheDir : $options{c} if defined $options{c};
-days : 7,
-ncdays : 0,
-ncsdays : 0,
-start : 0,
-retries : 3,
-maxskips : 50,
-includeXMLTV : true,
-outputXTVD : 0,
-sleeptime : 0,
-shiftMinutes : 0,
-lang : 'en',
-  }
-
-usersettings {
-email : undefined,
-password : undefined,
-lineupId : undefined,
-zipcode : undefined,
-proxy : undefined,
-}
-
-let paths {
-outFile : homeDir + 'xmltv.xml',
-urlRoot : 'http://tvschedule.zap2it.com/tvlistings/',
-tvgurlRoot : 'http://mobilelistings.tvguide.com/',
-tvgMapiRoot : 'http://mapi.tvguide.com/',
-tvgurl : 'http://www.tvguide.com/',
-tvgspritesurl : 'http://static.tvgcdn.net/sprites/',
-iconDir : undefined,
-trailerDir : undefined,
-retries : 20,
-}
-
+let tvgFavs  = {};
 let programs = {};
 let stations = {};
 let schedule = {};
@@ -84,31 +26,9 @@ let fh = {};
 let XTVD_startTime;
 let XTVD_endTime;
 
-let today = new Date;
-if (! -d $cacheDir) {
-  mkdir($cacheDir) or die "Can't mkdir: $!\n";
-} else {
-  const fs = require('fs');
-  opendir(DIR, "$cacheDir/");
-const glob = require('glob-fs');
-  let cacheFiles = [];
-  cacheFiles = glob.readdirSync(paths.cacheDir + '/**/*.js|.html');
-  cacheFiles.forEach(cacheFile) {
-    let cacheFilePath = cacheDir + cacheFile;
-    let lastOpenedAt = fs.stat(cacheFilePath)[8];
-    if (lastOpenedAt + ( (days + 2) * 86400 ) < today) {
-    fs.unlink(cacheFilePath, (err) => {
-      if (err) throw err;
-      console.log('Deleted File: ' + cacheFile);
-    });
-    }
-  }
-}
-
-if (settings.outputXTVD) {
+if (default.settings.outputXTVD) {
   // get favorites
-  if !(settings.outputAllChannels);
-  login();
+  if (!default.settings.outputAllChannels) login();
   if defined($iconDir) parseTVGIcons();
   const gridHours = 3;
   const maxCount = days * (24 / gridHours);
@@ -124,7 +44,7 @@ if (settings.outputXTVD) {
       xtvdEndTime = mSecs + (gridHours * 3600000) - 1;
     }
 
-    const utf8 = require('utf8');
+    const utf8 = require("utf8");
     let fileName = cacheDir + mSecs + ".js";
     if (!fileName || i >= ncCount || i < ncsCount) {
       if !defined($zlineupId) &login();
@@ -175,7 +95,7 @@ function parseZap() {
       let params = "";
       if (user.lineupId) params += "lineupId=$zlineupId";
       if (user.zipcode) $params .= "&zipcode=$zipcode";
-      let absUrl = Encode::encode('utf8', getUrl(paths.urlRoot . "ZCGrid.do?isDescriptionOn=true&fromTimeInMillis="
+      let absUrl = Encode::encode("utf8", getUrl(paths.urlRoot . "ZCGrid.do?isDescriptionOn=true&fromTimeInMillis="
         + mSecs + params
         + "&aid=tvschedule") 
       );
@@ -230,8 +150,8 @@ if $tb > 0 console.log("Downloaded " + tb + "bytes in" + treq + "http requests.\
 if $expired > 0 console.log("Expired programs: $expired\n");
 out("Writing XML file: " + outFile + "\n");
 open(FH, ">$outFile");
-let enc = 'ISO-8859-1';
-if (options.utf8) enc = 'UTF-8';
+let enc = "ISO-8859-1";
+if (options.utf8) enc = "UTF-8";
 
 if (outputXTVD) {
   printHeaderXTVD(FH, enc);
@@ -340,14 +260,14 @@ function sortChan {
 
 sub enc {
   my $t = shift;
-  if (!defined($options{U})) {$t = Encode::decode('utf8', $t);}
+  if (!defined($options{U})) {$t = Encode::decode("utf8", $t);}
   if (!defined($options{E}) || $options{E} =~ /amp/) {$t =~ s/&/&amp;/gs;}
   if (!defined($options{E}) || $options{E} =~ /quot/) {$t =~ s/"/&quot;/gs;}
-  if (!defined($options{E}) || $options{E} =~ /apos/) {$t =~ s/'/&apos;/gs;}
+  if (!defined($options{E}) || $options{E} =~ /apos/) {$t =~ s/"/&apos;/gs;}
   if (!defined($options{E}) || $options{E} =~ /lt/) {$t =~ s/</&lt;/gs;}
   if (!defined($options{E}) || $options{E} =~ /gt/) {$t =~ s/>/&gt;/gs;}
   if (defined($options{e})) {
-    $t =~ s/([^\x20-\x7F])/'&#' . ord($1) . ';'/gse;
+    $t =~ s/([^\x20-\x7F])/"&#" . ord($1) . ";"/gse;
   }
   return $t;
 }
@@ -537,8 +457,8 @@ sub printProgrammes {
 
 sub printHeaderXTVD {
   my ($FH, $enc) = @_;
-  print $FH "<?xml version='1.0' encoding='$enc'?>\n";
-  print $FH "<xtvd from='" . &convTimeXTVD($XTVD_startTime) . "' to='" . &convTimeXTVD($XTVD_endTime)  . "' schemaVersion='1.3' xmlns='urn:TMSWebServices' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='urn:TMSWebServices http://docs.tms.tribune.com/tech/xml/schemas/tmsxtvd.xsd'>\n";
+  print $FH "<?xml version="1.0" encoding="$enc"?>\n";
+  print $FH "<xtvd from="" . &convTimeXTVD($XTVD_startTime) . "" to="" . &convTimeXTVD($XTVD_endTime)  . "" schemaVersion="1.3" xmlns="urn:TMSWebServices" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:TMSWebServices http://docs.tms.tribune.com/tech/xml/schemas/tmsxtvd.xsd">\n";
 }
 
 sub printFooterXTVD {
@@ -550,7 +470,7 @@ sub printStationsXTVD {
   my $FH = shift;
   print $FH "<stations>\n";
   for my $key ( sort sortChan keys %stations ) {
-    print $FH "\t<station id='" . $stations{$key}{stnNum} . "'>\n";
+    print $FH "\t<station id="" . $stations{$key}{stnNum} . "">\n";
     if (defined($stations{$key}{number})) {
       $sname = &enc($stations{$key}{name});
       print $FH "\t\t<callSign>" . $sname . "</callSign>\n";
@@ -571,10 +491,10 @@ sub printStationsXTVD {
 sub printLineupsXTVD {
   my $FH = shift;
   print $FH "<lineups>\n";
-  print $FH "\t<lineup id='$lineupId' name='$lineupname' location='$lineuplocation' type='$lineuptype' postalCode='$postalcode'>\n";
+  print $FH "\t<lineup id="$lineupId" name="$lineupname" location="$lineuplocation" type="$lineuptype" postalCode="$postalcode">\n";
   for my $key ( sort sortChan keys %stations ) {
     if (defined($stations{$key}{number})) {
-      print $FH "\t<map station='" . $stations{$key}{stnNum} . "' channel='" . $stations{$key}{number} . "'></map>\n";
+      print $FH "\t<map station="" . $stations{$key}{stnNum} . "" channel="" . $stations{$key}{number} . ""></map>\n";
     }
   }
   print $FH "\t</lineup>\n";
@@ -597,9 +517,9 @@ sub printSchedulesXTVD {
       my $stopTime = &convTimeXTVD($schedule{$station}{$keyArray[$i+1]}{time});
       my $duration = &convDurationXTVD($schedule{$station}{$keyArray[$i+1]}{time} - $schedule{$station}{$s}{time});
 
-      print $FH "\t<schedule program='$p' station='" . $stations{$station}{stnNum} . "' time='$startTime' duration='$duration'"; 
-      print $FH " hdtv='true' " if (defined($schedule{$station}{$s}{quality}));
-      print $FH " new='true' " if (defined($schedule{$station}{$s}{new}) || defined($schedule{$station}{$s}{live}));
+      print $FH "\t<schedule program="$p" station="" . $stations{$station}{stnNum} . "" time="$startTime" duration="$duration""; 
+      print $FH " hdtv="true" " if (defined($schedule{$station}{$s}{quality}));
+      print $FH " new="true" " if (defined($schedule{$station}{$s}{new}) || defined($schedule{$station}{$s}{live}));
       print $FH "/>\n";
       $i++;
     }
@@ -611,7 +531,7 @@ sub printProgramsXTVD {
   my $FH = shift;
   print $FH "<programs>\n";
   foreach $p (keys %programs) {
-      print $FH "\t<program id='" . $p . "'>\n";
+      print $FH "\t<program id="" . $p . "">\n";
       print $FH "\t\t<title>" . &enc($programs{$p}{title}) . "</title>\n" if defined($programs{$p}{title});
       print $FH "\t\t<subtitle>" . &enc($programs{$p}{episode}) . "</subtitle>\n" if defined($programs{$p}{episode});
       print $FH "\t\t<description>" . &enc($programs{$p}{description}) . "</description>\n" if defined($programs{$p}{description});
@@ -637,7 +557,7 @@ sub printGenresXTVD {
   print $FH "<genres>\n";
   foreach $p (keys %programs) {
     if (defined($programs{$p}{genres}) && $programs{$p}{genres}{movie} != 1) {
-      print $FH "\t<programGenre program='" . $p . "'>\n";
+      print $FH "\t<programGenre program="" . $p . "">\n";
       foreach my $g (keys %{$programs{$p}{genres}}) {
         print $FH "\t\t<genre>\n";
         print $FH "\t\t\t<class>" . &enc(ucfirst($g)) . "</class>\n";
@@ -651,28 +571,28 @@ sub printGenresXTVD {
 }
 
 sub loginTVG {
-  my $r = $ua->get($tvgurl . 'user/_modal/');
+  my $r = $ua->get($tvgurl . "user/_modal/");
   if ($r->is_success) {
     my $str = $r->decoded_content;
     if ($str =~ /<input.+name=\"_token\".+?value=\"(.*?)\"/is) {
       $token = $1;
-      if ($userEmail ne '' && $password ne '') {
+      if ($userEmail ne "" && $password ne "") {
         my $rc = 0;
         while ($rc++ < $retries) {
-          my $r = $ua->post($tvgurl . 'user/attempt/', 
+          my $r = $ua->post($tvgurl . "user/attempt/", 
             { 
               _token => $token,
               email => $userEmail, 
               password => $password,
-            }, 'X-Requested-With' => 'XMLHttpRequest'
+            }, "X-Requested-With" => "XMLHttpRequest"
           ); 
 
-          $dc = Encode::encode('utf8', $r->decoded_content( raise_error => 1 ));
+          $dc = Encode::encode("utf8", $r->decoded_content( raise_error => 1 ));
           if ($dc =~ /success/) {
             $ua->cookie_jar->scan(sub { if ($_[1] eq "ServiceID") { $zlineupId = $_[2]; }; }); 
             if (!defined($options{a})) {
-              my $r = $ua->get($tvgurl . "user/favorites/?provider=$zlineupId",'X-Requested-With' => 'XMLHttpRequest'); 
-              $dc = Encode::encode('utf8', $r->decoded_content( raise_error => 1 ));
+              my $r = $ua->get($tvgurl . "user/favorites/?provider=$zlineupId","X-Requested-With" => "XMLHttpRequest"); 
+              $dc = Encode::encode("utf8", $r->decoded_content( raise_error => 1 ));
               if ($dc =~ /\{\"code\":200/) {
                 &parseTVGFavs($dc);
               } 
@@ -694,15 +614,15 @@ sub loginTVG {
 sub loginZAP {
   my $rc = 0;
   while ($rc++ < $retries) {
-    my $r = $ua->post($urlRoot . 'ZCLogin.do', 
+    my $r = $ua->post($urlRoot . "ZCLogin.do", 
       { 
         username => $userEmail, 
         password => $password,
-        xhr => 'true', # xml
+        xhr => "true", # xml
       }
     ); 
  
-    $dc = Encode::encode('utf8', $r->decoded_content( raise_error => 1 ));
+    $dc = Encode::encode("utf8", $r->decoded_content( raise_error => 1 ));
     if ($dc =~ /success,$userEmail/) {
       return $dc; 
     } else {
@@ -714,7 +634,7 @@ sub loginZAP {
 }
 
 sub login {
-  if (!defined($userEmail) || $userEmail eq '' || !defined($password) || $password eq '') {
+  if (!defined($userEmail) || $userEmail eq "" || !defined($password) || $password eq "") {
     if (!defined($zlineupId)) {
       die "Unable to login: Unspecified username or password.\n"
     }
@@ -723,12 +643,12 @@ sub login {
   if (!defined($ua)) {
     $ua = new LWP::UserAgent; 
     $ua->cookie_jar(HTTP::Cookies->new);
-    $ua->proxy('http', $proxy) if defined($proxy);
-    $ua->agent('Mozilla/4.0');
-    $ua->default_headers->push_header('Accept-Encoding' => 'gzip, deflate');
+    $ua->proxy("http", $proxy) if defined($proxy);
+    $ua->agent("Mozilla/4.0");
+    $ua->default_headers->push_header("Accept-Encoding" => "gzip, deflate");
   }
 
-  if ($userEmail ne '' && $password ne '') {
+  if ($userEmail ne "" && $password ne "") {
     &console.log("Logging in as \"$userEmail\" (" . localtime . ")\n");
     if (defined($options{z})) {
       &loginTVG();
@@ -777,7 +697,7 @@ sub getURL {
 
 sub wbf {
   my($f, $s) = @_;
-  open(FO, ">$f") or die "Failed to open '$f': $!";
+  open(FO, ">$f") or die "Failed to open "$f": $!";
   binmode(FO);
   print FO $s;
   close(FO);
@@ -785,7 +705,7 @@ sub wbf {
 
 sub unf {
   my $f = shift;
-  unlink($f) or &console.error("Failed to delete '$f': $!");
+  unlink($f) or &console.error("Failed to delete "$f": $!");
 }
 
 sub copyLogo {
@@ -803,7 +723,7 @@ sub copyLogo {
 sub handleLogo {
   my $url = shift;
   if (! -d $iconDir) {
-    mkdir($iconDir) or die "Can't mkdir: $!\n";
+    mkdir($iconDir) or die "Can"t mkdir: $!\n";
   }
   ($n,$_,$s) = fileparse($url, qr"\..*");
   $stations{$cs}{logo} = $n;
@@ -814,7 +734,7 @@ sub handleLogo {
 }
 
 sub setOriginalAirDate {
-  if (substr($cp,10,4) ne '0000') {
+  if (substr($cp,10,4) ne "0000") {
     if (!defined($programs{$cp}{originalAirDate})
         || ($schedule{$cs}{$sch}{time} < $programs{$cp}{originalAirDate})) {
       $programs{$cp}{originalAirDate} = $schedule{$cs}{$sch}{time};
@@ -841,7 +761,7 @@ sub on_td {
         $oc =~ s/.*\((.*)\).*/$1/s;
         @a = split(/,/, $oc);
         $cp = $a[1];
-        $cp =~ s/'//g;
+        $cp =~ s/"//g;
         $sch = $a[2];
         if (length($cp) == 0) {
           $cp = $cs = $sch = -1;
@@ -882,12 +802,12 @@ sub on_td {
 sub handleTags {
   my $text = shift;
   if ($text =~ /LIVE/) {
-    $schedule{$cs}{$sch}{live} = 'Live';
+    $schedule{$cs}{$sch}{live} = "Live";
     &setOriginalAirDate();
   } elsif ($text =~ /HD/) {
-    $schedule{$cs}{$sch}{quality} = 'HD';
+    $schedule{$cs}{$sch}{quality} = "HD";
   } elsif ($text =~ /NEW/) {
-    $schedule{$cs}{$sch}{new} = 'New';
+    $schedule{$cs}{$sch}{new} = "New";
     &setOriginalAirDate();
   }
 }
@@ -895,19 +815,19 @@ sub handleTags {
 sub on_li {
   my($self, $tag, $attr) = @_;
   if ($attr->{class} =~ /zc-ic-ne/) {
-    $schedule{$cs}{$sch}{new} = 'New';
+    $schedule{$cs}{$sch}{new} = "New";
     &setOriginalAirDate();
   } elsif ($attr->{class} =~ /zc-ic-cc/) {
-    $schedule{$cs}{$sch}{cc} = 'CC';
+    $schedule{$cs}{$sch}{cc} = "CC";
   } elsif ($attr->{class} =~ /zc-ic-tvratings/) {
     $self->handler(text => sub { $programs{$cp}{rating} = &trim2(shift); }, "dtext");
   } elsif ($attr->{class} =~ /zc-ic/) { 
     $self->handler(text => sub { &handleTags(shift); }, "dtext");
   } elsif ($attr->{class} =~ /zc-icons-live/) {
-    $schedule{$cs}{$sch}{live} = 'Live';
+    $schedule{$cs}{$sch}{live} = "Live";
     &setOriginalAirDate();
   } elsif ($attr->{class} =~ /zc-icons-hd/) {
-    $schedule{$cs}{$sch}{quality} = 'HD';
+    $schedule{$cs}{$sch}{quality} = "HD";
   }
 }
 
@@ -915,14 +835,14 @@ sub on_img {
   my($self, $tag, $attr) = @_;
   if ($inIcons) {
     if ($attr->{alt} =~ /Live/) {
-      $schedule{$cs}{$sch}{live} = 'Live';
+      $schedule{$cs}{$sch}{live} = "Live";
       &setOriginalAirDate();
     } elsif ($attr->{alt} =~ /New/) {
-      $schedule{$cs}{$sch}{new} = 'New';
+      $schedule{$cs}{$sch}{new} = "New";
       &setOriginalAirDate();
     } elsif ($attr->{alt} =~ /HD/ || $attr->{alt} =~ /High Definition/ 
       || $attr->{src} =~ /video-hd/ || $attr->{src} =~ /video-ahd/) {
-      $schedule{$cs}{$sch}{quality} = 'HD';
+      $schedule{$cs}{$sch}{quality} = "HD";
     } 
   } elsif ($inStationTd && $attr->{alt} =~ /Logo/) {
     &handleLogo($attr->{src}) if defined($iconDir);
@@ -966,7 +886,7 @@ sub on_a {
     if ($count == 0 && $inStationLogo && $iconDir) {
       my $fn = "$cacheDir/STNNUM$cs\.html\.gz";
       if (! -e $fn) {
-        $rc = Encode::encode('utf8', &getURL($attr->{href}) );
+        $rc = Encode::encode("utf8", &getURL($attr->{href}) );
         &wbf($fn, Compress::Zlib::memGzip($rc));
       }
       &console.log("[STNNUM] Parsing: $cs\n");
@@ -1053,8 +973,8 @@ sub handler_start {
 
 sub handler_end {
   my ($self, $tag) = @_;
-  if ($tag eq 'td' || $tag eq 'th') { $inStationTd = 0; } 
-  elsif ($tag eq 'div') { $inIcons = 0; $inStationLogo = 0; }
+  if ($tag eq "td" || $tag eq "th") { $inStationTd = 0; } 
+  elsif ($tag eq "div") { $inIcons = 0; $inStationLogo = 0; }
   $self->handler(text => undef);
 }
 
@@ -1073,8 +993,8 @@ sub parseTVGFavs {
   my $buffer = shift;
   my $t = decode_json($buffer);
 
-  if (defined($t->{'message'})) {
-    my $m = $t->{'message'};
+  if (defined($t->{"message"})) {
+    my $m = $t->{"message"};
     foreach my $f (@{$m}) {
       my $source = $f->{"source"};
       my $channel = $f->{"channel"};
@@ -1086,12 +1006,12 @@ sub parseTVGFavs {
 
 sub parseTVGIcons {
   require GD;
-  $rc = Encode::encode('utf8', &getURL($tvgspritesurl . "$zlineupId\.css") );
+  $rc = Encode::encode("utf8", &getURL($tvgspritesurl . "$zlineupId\.css") );
   if ($rc =~ /background-image:.+?url\((.+?)\)/) {
     my $url = $tvgspritesurl . $1;
 
     if (! -d $iconDir) {
-      mkdir($iconDir) or die "Can't mkdir: $!\n";
+      mkdir($iconDir) or die "Can"t mkdir: $!\n";
     }
 
     ($n,$_,$s) = fileparse($url, qr"\..*");
@@ -1130,24 +1050,24 @@ sub parseTVGD {
   $gz->gzclose();
   my $t = decode_json($buffer);
 
-  if (defined($t->{'program'})) {
-    my $prog = $t->{'program'};
-    if (defined($prog->{'release_year'})) {
-      $programs{$cp}{movie_year} = $prog->{'release_year'};
+  if (defined($t->{"program"})) {
+    my $prog = $t->{"program"};
+    if (defined($prog->{"release_year"})) {
+      $programs{$cp}{movie_year} = $prog->{"release_year"};
     }
-    if (defined($prog->{'rating'}) && !defined($programs{$cp}{rating})) {
-      $programs{$cp}{rating} = $prog->{'rating'} if $prog->{'rating'} ne 'NR';
+    if (defined($prog->{"rating"}) && !defined($programs{$cp}{rating})) {
+      $programs{$cp}{rating} = $prog->{"rating"} if $prog->{"rating"} ne "NR";
     }
   }
 
-  if (defined($t->{'tvobject'})) {
-    my $tvo = $t->{'tvobject'};
-    if (defined($tvo->{'photos'})) {
-      my $photos = $tvo->{'photos'};
+  if (defined($t->{"tvobject"})) {
+    my $tvo = $t->{"tvobject"};
+    if (defined($tvo->{"photos"})) {
+      my $photos = $tvo->{"photos"};
       my %phash;
       foreach $ph (@{$photos}) {
-        my $w = $ph->{'width'} * $ph->{'height'};
-        my $u = $ph->{'url'};
+        my $w = $ph->{"width"} * $ph->{"height"};
+        my $u = $ph->{"url"};
         $phash{$w} = $u;
       }
       my $big = (sort {$b <=> $a} keys %phash)[0];
@@ -1165,12 +1085,12 @@ sub parseTVGGrid {
   my $t = decode_json($buffer);
 
   foreach my $e (@{$t}) {
-    my $cjs = $e->{'Channel'};
-    $cs = $cjs->{'SourceId'};
+    my $cjs = $e->{"Channel"};
+    $cs = $cjs->{"SourceId"};
 
     if (%tvgfavs) {
-      if (defined($cjs->{'Number'}) && $cjs->{'Number'} ne '') {
-        my $n = $cjs->{'Number'};
+      if (defined($cjs->{"Number"}) && $cjs->{"Number"} ne "") {
+        my $n = $cjs->{"Number"};
         if ($cs != $tvgfavs{$n}) {
           next;
         }
@@ -1179,10 +1099,10 @@ sub parseTVGGrid {
 
     if (!defined($stations{$cs}{stnNum})) {
       $stations{$cs}{stnNum} = $cs;
-      $stations{$cs}{number} = $cjs->{'Number'} if defined($cjs->{'Number'}) && $cjs->{'Number'} ne '';
-      $stations{$cs}{name} = $cjs->{'Name'};
-      if (defined($cjs->{'FullName'}) && $cjs->{'FullName'} ne $cjs->{'Name'}) {
-        $stations{$cs}{fullname} = $cjs->{'FullName'};
+      $stations{$cs}{number} = $cjs->{"Number"} if defined($cjs->{"Number"}) && $cjs->{"Number"} ne "";
+      $stations{$cs}{name} = $cjs->{"Name"};
+      if (defined($cjs->{"FullName"}) && $cjs->{"FullName"} ne $cjs->{"Name"}) {
+        $stations{$cs}{fullname} = $cjs->{"FullName"};
       }
 
       if (!defined($stations{$cs}{order})) {
@@ -1194,64 +1114,64 @@ sub parseTVGGrid {
       }
     }
 
-    my $cps = $e->{'ProgramSchedules'};
+    my $cps = $e->{"ProgramSchedules"};
     foreach my $pe (@{$cps}) {
-      $cp = $pe->{'ProgramId'};
-      my $catid = $pe->{'CatId'};
+      $cp = $pe->{"ProgramId"};
+      my $catid = $pe->{"CatId"};
 
       if ($catid == 1) { $programs{$cp}{genres}{movie} = 1 } 
       elsif ($catid == 2) { $programs{$cp}{genres}{sports} = 1 } 
       elsif ($catid == 3) { $programs{$cp}{genres}{family} = 1 } 
       elsif ($catid == 4) { $programs{$cp}{genres}{news} = 1 } 
       # 5 - 10?
-      # my $subcatid = $pe->{'SubCatId'}; 
+      # my $subcatid = $pe->{"SubCatId"}; 
 
-      my $ppid = $pe->{'ParentProgramId'};
+      my $ppid = $pe->{"ParentProgramId"};
       if ((defined($ppid) && $ppid != 0)
         || (defined($options{j}) && $catid != 1)) {
         $programs{$cp}{genres}{series} = 9; 
       }
 
-      $programs{$cp}{title} = $pe->{'Title'};
+      $programs{$cp}{title} = $pe->{"Title"};
       $tba = 1 if $programs{$cp}{title} =~ /$sTBA/i;
 
-      if (defined($pe->{'EpisodeTitle'}) && $pe->{'EpisodeTitle'} ne '') {
-        $programs{$cp}{episode} = $pe->{'EpisodeTitle'};
+      if (defined($pe->{"EpisodeTitle"}) && $pe->{"EpisodeTitle"} ne "") {
+        $programs{$cp}{episode} = $pe->{"EpisodeTitle"};
         $tba = 1 if $programs{$cp}{episode} =~ /$sTBA/i;
       }
 
-      $programs{$cp}{description} = $pe->{'CopyText'} if defined($pe->{'CopyText'}) && $pe->{'CopyText'} ne '';
-      $programs{$cp}{rating} = $pe->{'Rating'} if defined($pe->{'Rating'}) && $pe->{'Rating'} ne '';
+      $programs{$cp}{description} = $pe->{"CopyText"} if defined($pe->{"CopyText"}) && $pe->{"CopyText"} ne "";
+      $programs{$cp}{rating} = $pe->{"Rating"} if defined($pe->{"Rating"}) && $pe->{"Rating"} ne "";
 
-      my $sch = $pe->{'StartTime'} * 1000;
+      my $sch = $pe->{"StartTime"} * 1000;
       $schedule{$cs}{$sch}{time} = $sch;
-      $schedule{$cs}{$sch}{endtime} = $pe->{'EndTime'} * 1000;
+      $schedule{$cs}{$sch}{endtime} = $pe->{"EndTime"} * 1000;
       $schedule{$cs}{$sch}{program} = $cp;
       $schedule{$cs}{$sch}{station} = $cs;
 
-      my $airat = $pe->{'AiringAttrib'};
+      my $airat = $pe->{"AiringAttrib"};
       if ($airat & 1) { $schedule{$cs}{$sch}{live} = 1 }
       elsif ($airat & 4) { $schedule{$cs}{$sch}{new} = 1 }
       # other bits?
 
-      my $tvo = $pe->{'TVObject'};
+      my $tvo = $pe->{"TVObject"};
       if (defined($tvo)) {
-        if (defined($tvo->{'SeasonNumber'}) && $tvo->{'SeasonNumber'} != 0) {
-          $programs{$cp}{seasonNum} = $tvo->{'SeasonNumber'};
-          if (defined($tvo->{'EpisodeNumber'}) && $tvo->{'EpisodeNumber'} != 0) {
-            $programs{$cp}{episodeNum} = $tvo->{'EpisodeNumber'};
+        if (defined($tvo->{"SeasonNumber"}) && $tvo->{"SeasonNumber"} != 0) {
+          $programs{$cp}{seasonNum} = $tvo->{"SeasonNumber"};
+          if (defined($tvo->{"EpisodeNumber"}) && $tvo->{"EpisodeNumber"} != 0) {
+            $programs{$cp}{episodeNum} = $tvo->{"EpisodeNumber"};
           }
         }
-        if (defined($tvo->{'EpisodeAirDate'})) {
-          my $eaid = $tvo->{'EpisodeAirDate'};
+        if (defined($tvo->{"EpisodeAirDate"})) {
+          my $eaid = $tvo->{"EpisodeAirDate"};
           $eaid =~ tr/0-9//cd;
-          $programs{$cp}{originalAirDate} = $eaid if ($eaid ne '');
+          $programs{$cp}{originalAirDate} = $eaid if ($eaid ne "");
         }
         my $url;
-        if (defined($tvo->{'EpisodeSEOUrl'}) && $tvo->{'EpisodeSEOUrl'} ne '') {
-          $url = $tvo->{'EpisodeSEOUrl'};
-        } elsif(defined($tvo->{'SEOUrl'}) && $tvo->{'SEOUrl'} ne '') {
-          $url = $tvo->{'SEOUrl'};
+        if (defined($tvo->{"EpisodeSEOUrl"}) && $tvo->{"EpisodeSEOUrl"} ne "") {
+          $url = $tvo->{"EpisodeSEOUrl"};
+        } elsif(defined($tvo->{"SEOUrl"}) && $tvo->{"SEOUrl"} ne "") {
+          $url = $tvo->{"SEOUrl"};
           $url = "/movies$url" if ($catid == 1 && $url !~ /movies/); 
         }
         $programs{$cp}{url} = substr($tvgurl, 0, -1) . $url if defined($url);
@@ -1272,7 +1192,7 @@ sub getDetails {
   if (! -e $fn) {
     my $rs = &getURL($url, 2);
     if (length($rs)) {
-      $rc = Encode::encode('utf8', $rs);
+      $rc = Encode::encode("utf8", $rs);
       &wbf($fn, Compress::Zlib::memGzip($rc));
     }
   }
@@ -1291,7 +1211,7 @@ sub parseJSONI {
   my $buffer;
   $buffer .= $b while $gz->gzread($b, 65535) > 0;
   $gz->gzclose();
-  $buffer =~ s/'/"/g;
+  $buffer =~ s/"/"/g;
   my $t = decode_json($buffer);
 
   if (defined($t->{imageUrl}) && $t->{imageUrl} =~ /^http/i) {
@@ -1307,47 +1227,47 @@ sub parseJSOND {
   $gz->gzclose();
   $buffer =~ s/^.+?\=\ //gim;
   my $t = decode_json($buffer);
-  my $p = $t->{'program'};
+  my $p = $t->{"program"};
 
-  if (defined($p->{'seasonNumber'})) {
-    my $sn = $p->{'seasonNumber'};
+  if (defined($p->{"seasonNumber"})) {
+    my $sn = $p->{"seasonNumber"};
     $sn =~ s/S//i;
-    $programs{$cp}{seasonNum} = $sn if ($sn ne '');
+    $programs{$cp}{seasonNum} = $sn if ($sn ne "");
   }
-  if (defined($p->{'episodeNumber'})) {
-    my $en = $p->{'episodeNumber'};
+  if (defined($p->{"episodeNumber"})) {
+    my $en = $p->{"episodeNumber"};
     $en =~ s/E//i;
-    $programs{$cp}{episodeNum} = $en if ($en ne '');
+    $programs{$cp}{episodeNum} = $en if ($en ne "");
   }
-  if (defined($p->{'originalAirDate'})) {
-    my $oad = $p->{'originalAirDate'};
-    $programs{$cp}{originalAirDate} = $oad if ($oad ne '');
+  if (defined($p->{"originalAirDate"})) {
+    my $oad = $p->{"originalAirDate"};
+    $programs{$cp}{originalAirDate} = $oad if ($oad ne "");
   }
-  if (defined($p->{'description'})) {
-    my $desc = $p->{'description'};
-    $programs{$cp}{description} = $desc if ($desc ne '');
+  if (defined($p->{"description"})) {
+    my $desc = $p->{"description"};
+    $programs{$cp}{description} = $desc if ($desc ne "");
   }
-  if (defined($p->{'genres'})) {
-    my $genres = $p->{'genres'};
+  if (defined($p->{"genres"})) {
+    my $genres = $p->{"genres"};
     my $i = 1;
     foreach $g (@{$genres}) {
       ${$programs{$cp}{genres}}{lc($g)} = $i++;
     }
   }
-  if (defined($p->{'seriesId'})) {
-    my $seriesId = $p->{'seriesId'};
-    ${$programs{$cp}{genres}}{series} = 9 if ($seriesId ne '');
+  if (defined($p->{"seriesId"})) {
+    my $seriesId = $p->{"seriesId"};
+    ${$programs{$cp}{genres}}{series} = 9 if ($seriesId ne "");
   }
 
-  if (defined($p->{'credits'})) {
-    my $credits = $p->{'credits'};
+  if (defined($p->{"credits"})) {
+    my $credits = $p->{"credits"};
     my $i = 1;
     foreach $g (@{$credits}) {
       ${$programs{$cp}{credits}}{$g} = $i++;
     }
   }
-  if (defined($p->{'starRating'})) {
-    my $sr = $p->{'starRating'};
+  if (defined($p->{"starRating"})) {
+    my $sr = $p->{"starRating"};
     my $tsr = length($sr);
     if ($sr =~ /\+$/) {
       $tsr = $tsr - 1;

@@ -1,5 +1,6 @@
-module.exports.options = function (req, res) {
-  const settings {
+module.exports.options = () => {
+
+  this.settings {
     days : 7,
     ncdays : 0,
     ncsdays : 0,
@@ -10,10 +11,11 @@ module.exports.options = function (req, res) {
     outputXTVD : 0,
     sleeptime : 0,
     shiftMinutes : 0,
-    lang : 'en',
+    lang : "en",
+    outputAllChannels : false,
   }
 
-  const user {
+  this.user {
     email : undefined,
     password : undefined,
     lineupId : undefined,
@@ -21,16 +23,18 @@ module.exports.options = function (req, res) {
     proxy : undefined,
   }
 
-  const paths {
-    outFile : homeDir + 'xmltv.xml',
-    urlRoot : 'http://tvschedule.zap2it.com/tvlistings/',
-    tvgurlRoot : 'http://mobilelistings.tvguide.com/',
-    tvgMapiRoot : 'http://mapi.tvguide.com/',
-    tvgurl : 'http://www.tvguide.com/',
-    tvgspritesurl : 'http://static.tvgcdn.net/sprites/',
-    cacheDir : "./getData/cache/"
+  this.paths {
+    homeDir : "./",
+    outFile : homeDir + "xmltv.xml",
+    cacheDir : homeDir + "getData/cache/"
     iconDir : undefined,
     trailerDir : undefined,
-    retries : 20,
+    zap2ItRoot : "http://tvschedule.zap2it.com/tvlistings/",
+    tvgurlRoot : "http://mobilelistings.tvguide.com/",
+    tvgMapiRoot : "http://mapi.tvguide.com/",
+    tvgurl : "http://www.tvguide.com/",
+    tvgspritesurl : "http://static.tvgcdn.net/sprites/",
   }
+
+}
 
