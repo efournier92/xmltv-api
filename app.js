@@ -1,20 +1,20 @@
 ///////////////////////////////////
 // DEPENDENCIES
 //
-var express = require("express");
-var path = require("path");
-var favicon = require("serve-favicon");
-var logger = require("morgan");
-var cookieParser = require("cookie-parser");
-var bodyParser = require("body-parser");
+const express = require("express");
+const path = require("path");
+const favicon = require("serve-favicon");
+const logger = require("morgan");
+const cookieParser = require("cookie-parser");
+const bodyParser = require("body-parser");
 
 // API Routes
-var routesApi = require("./app_api/routes/index");
+const routesApi = require("./app_api/routes/index");
 
 ///////////////////////////////////
 // EXPRESS
 //
-var app = express();
+const app = express();
 
 // View Engine Setup
 app.set("views", path.join(__dirname, "views"));
@@ -33,7 +33,7 @@ app.use(express.static(path.join(__dirname, "app_client")));
 // Use API routes when path starts with /api
 app.use("/api", routesApi);
 // Else, render the index.html page for the Angular SPA
-app.use(function(req, res) {
+app.use( (req, res) => {
   res.sendFile(path.join(__dirname, "app_client", "index.html"));
 });
 
@@ -42,7 +42,7 @@ app.use(function(req, res) {
 //
 // Forward 404 to Error Handler
 app.use(function(req, res, next) {
-  var err = new Error("Not Found");
+  const err = new Error("Not Found");
   err.status = 404;
   next(err);
 });
@@ -78,7 +78,7 @@ app.use(function(err, req, res, next) {
 ///////////////////////////////////
 // SERVER
 //
-var port = process.env.PORT || 8080;
+const port = process.env.PORT || 8080;
 app.listen(port);
 console.log("App listening on port", port);
 
