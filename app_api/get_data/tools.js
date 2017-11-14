@@ -1,5 +1,5 @@
 exports.tools = () => {
-  parseGrid = function() {
+  parseGrid = function () {
     let report_tags = (`td`, `th`, `span`, `a`, `p`, `div`, `img`, `li`);
     let p = HTML::Parser->new(
       api_version => 3,

@@ -29,7 +29,7 @@ exports.getZap = function () {
         // );
       }
       console.log(`[${i + 1}/${maxCount}] Parsing: ${fileName}]`);
-      parseGrid(fileNme);
+      parseGrid(fileName);
 
       if (i == 0) {
         gridHours = gridtimes / 2;
