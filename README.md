@@ -1,4 +1,8 @@
 # xmltv-api
 
-API app for fetching xmltv information.
+## Description
+API app for fetching XMLTV information.
+
+## Technologies Utilized
+* Node
 
